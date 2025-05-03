@@ -69,17 +69,48 @@ def main():
         
         print(f"Найдено {len(all_liked_tracks)} треков в Liked Songs")
         
+        # Проверяем существующие треки в целевом плейлисте, чтобы избежать дублирования
+        print("Проверяю существующие треки в плейлисте 'All tracks'...")
+        existing_tracks = set()
+        offset = 0
+        
+        while True:
+            existing_results = sp.playlist_items(new_playlist_id, limit=limit, offset=offset)
+            existing_items = existing_results['items']
+            if not existing_items:
+                break
+                
+            for item in existing_items:
+                if item['track'] and 'id' in item['track'] and item['track']['id']:
+                    existing_tracks.add(item['track']['id'])
+                    
+            offset += limit
+            
+            if len(existing_items) < limit:
+                break
+                
+            time.sleep(0.5)
+            
+        print(f"В плейлисте уже есть {len(existing_tracks)} треков")
+        
+        # Определяем треки, которые нужно добавить (исключаем дубликаты)
+        tracks_to_add = [track_id for track_id in all_liked_tracks if track_id not in existing_tracks]
+        print(f"Требуется добавить {len(tracks_to_add)} новых треков")
+        
         # Добавляем треки в новый плейлист (максимум 100 за раз)
-        print(f"Добавляю треки в плейлист 'All tracks'...")
-        
-        # Разбиваем список треков на группы по 100 (ограничение API)
-        track_chunks = [all_liked_tracks[i:i+100] for i in range(0, len(all_liked_tracks), 100)]
-        
-        for i, chunk in enumerate(track_chunks):
-            sp.playlist_add_items(new_playlist_id, chunk)
-            print(f"Добавлено {(i+1) * min(100, len(chunk))}/{len(all_liked_tracks)} треков")
-            # Небольшая пауза, чтобы не перегружать API
-            time.sleep(1)
+        if not tracks_to_add:
+            print("Все треки уже добавлены в плейлист. Нет необходимости в добавлении.")
+        else:
+            print(f"Добавляю треки в плейлист 'All tracks'...")
+            
+            # Разбиваем список треков на группы по 100 (ограничение API)
+            track_chunks = [tracks_to_add[i:i+100] for i in range(0, len(tracks_to_add), 100)]
+            
+            for i, chunk in enumerate(track_chunks):
+                sp.playlist_add_items(new_playlist_id, chunk)
+                print(f"Добавлено {(i+1) * min(100, len(chunk))}/{len(tracks_to_add)} треков")
+                # Небольшая пауза, чтобы не перегружать API
+                time.sleep(1)
         
         print("\nГотово! Все треки из Liked Songs были успешно добавлены в плейлист 'All tracks'")
         print(f"Ссылка на плейлист: https://open.spotify.com/playlist/{new_playlist_id}")
